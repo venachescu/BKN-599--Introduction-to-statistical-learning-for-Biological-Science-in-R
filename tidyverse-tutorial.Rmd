@@ -1,0 +1,283 @@
+---
+title: "Introduction to the tidyverse"
+output: html_notebook
+---
+
+```{r}
+install.packages('tidyverse')
+```
+
+The [tidyverse](https://www.tidyverse.org) is collection of really powerful, well designed and maintained packages for R - with some guiding philosophies about working with data. It is opinionated (with the *right* opinions), and has a great, active community supporting the packages and lots of examples to be found online.
+
+A lot of the examples and explanations I have here are ~~stolen~~ borrowed from Hadley Wickham, who is the author of ggplot2, dplyr and [BDFL](https://en.wikipedia.org/wiki/Benevolent_dictator_for_life) of the tidyverse.
+
+Some of the tidyverse packages you'll probably find useful:
+
+* `ggplot2`: really, really nice plots
+* `dplyr`: wrangling and shaping data
+* `purrr`: functional programming tools
+* `broom`: turning fitted models into data
+
+If you'd like to watch a great talk walking through all these examples from the man himself:
+
+[Hadley Wickham: Managing many models with R](https://youtu.be/rz3_FDVt9eg?list=PLgyRa2fv93jbl285bRD-MP1W71lSKGKyP)
+
+```{r, warning=FALSE, results='hide'}
+library(ISLR)
+library(pander)
+library(tidyverse)
+```
+&nbsp; 
+&nbsp; 
+
+### "tidy" data
+
+As anyone who works with a lot of data will know, the majority of your time, effort and difficulties are in cleaning, organizing and fighting to get it in the right format.
+Embracing the principles of 'tidy' data will help with many of these difficulties.
+The first and most important thing is to ~~ask if it sparks joy~~ make sure your data is in the right format:
+
+* __all columns are variables__
+* __all rows are observations__
+
+i.e. `colnames(data)` are the measured outcomes and `rownames(data)` are unique data points
+
+Honestly - this is actually most of what it is to have tidy data (it can be surprisingly tricky to get it there), but beyond that, taking care to have consistent naming, labels, formats and scales from the beginning can save you many headaches down the road.
+Once your data is at least in 'tidy' row-observations form, the tidyverse has many great functions to make your data truly spark joy.
+
+https://cran.r-project.org/web/packages/tidyr/vignettes/tidy-data.html
+
+&nbsp;
+&nbsp;
+
+### pipelines
+
+A super useful tool that's a big part of the tidyverse are 'pipelines'; the `magrittr` package introduces a different way of stringing together functions with a something called a 'pipe', which we write like this `%>%`. [It's not actually a pipe](https://en.wikipedia.org/wiki/The_Treachery_of_Images). but, it is very useful - all it does is take whatever is to the left of it, and uses it for the first argument for the function on the right.
+
+So instead of writting `do_something(data)`, we can write `data %>% do_something()`. If it's confusing, in your head say "then" whenever you see a `%>%`.
+```{r}
+# the boring old way 
+set.seed(1)
+round(mean(sqrt(seq(0, 10, 1))))
+
+# you, an intellectual
+# https://twitter.com/w_r_chase/status/1104588157792731138?s=12
+set.seed(1)
+
+seq(0, 10, 1) %>%
+  sqrt() %>%
+  mean() %>%
+  round()
+```
+
+
+The pipe starts becoming super useful when you'd like to perform a bunch of things in sequence of your data; like if we wanted to quickly display a table of a subset, while making a couple quick cosmetic changes:
+```{r, results='asis'}
+Auto %>%
+  # select only one origin
+  subset(origin = 1) %>%
+  # just these columns
+  select(name, mpg, displacement) %>%
+  # rename columns for display
+  rename(
+    "Displacement" = displacement,
+    "Miles per Gallon" = mpg,
+    "Model Name" = name
+    ) %>%
+  # remove any null value rows
+  na.omit() %>%
+  head() %>%
+  pander()
+```
+&nbsp;
+&nbsp;
+
+
+### dplyr for manipulating your data
+
+Another key part of the tidyverse is the `dplyr` package, which gives you a bunch of tools to manipulate and 'wrangle' your data. Usually, working with data is about 80% getting it into the right shape, ordering or size and the tools in base R can be cumbersome to say the least.
+
+Instead, in `dplyr` we can use:
+
+* `select`
+* `filter`
+* `rename`
+* `group_by`
+* `summarise`
+* `mutate`
+* `transmute`
+
+When you need to group rows together and do something to each of those groups, use `group_by`; like if you want to count the number of cars for each year:
+```{r}
+Auto %>%
+  filter(year %in% c(70, 71, 72)) %>%
+  group_by(year) %>%
+  count()
+```
+&nbsp;
+
+The summarise function makes it easy to quickly to compute statistics or other functions across columns of data. For example, we can  and as a bonus, we'll make it into a table and pretty the column names up a bit:
+```{r, results='asis'}
+Auto %>%
+  filter(year %in% c(70, 71, 72)) %>%
+  group_by(origin, year) %>%
+  summarise(
+    mean = mean(horsepower),
+    stdev = sd(horsepower)
+  ) %>%
+  rename(
+    "Horsepower (Mean)" = mean,
+    "Horsepower (Std. Dev)" = stdev,
+    "Country of Origin" = origin,
+    "Model Year" = year
+  ) %>%
+  head(10) %>%
+  pander()
+```
+
+https://dplyr.tidyverse.org
+
+&nbsp;
+&nbsp;
+&nbsp;
+
+### broom and many models
+
+Another huge pain in R can be extracting the coefficients, statistics and all the other numbers from the models and other statistical tests. For this there's the package `broom`, which makes it incredibly easy to turn all of the data about our models into tidy data. It is not included in the default 'tidyverse' install, so you'll need to install it separately.
+
+````{r}
+install.packages('broom')
+library(broom)
+```
+
+So, for example let's consider a super simple linear model:
+```{r}
+model <- lm(mpg ~ horsepower, data = Auto)
+```
+&nbsp;
+
+#### broom glance
+
+The `broom::glance`, will return a one-row summary of your model.
+```{r}
+broom::glance(model)
+```
+&nbsp;
+
+#### broom tidy
+
+The `broom::tidy` gives you more details, like for the linear lm, `lm` you get all the numbers for each of your model parameters.
+```{r}
+broom::tidy(model)
+```
+&nbsp;
+&nbsp;
+
+#### functions, not `for`
+
+Now, let's say we want to use `broom` on a bunch of models and turn all the data into a beautiful tidy table. We could do this with for loops, but for loops are not much fun; hard to write and hard to understand. Instead, we can do this with functional programming - it has 'fun' right in the name!
+
+Functional programming is a way of thinking about programming that is a little bit different from the usual way scientific programming is done (like in MATLAB, Python, Perl, C, etc.) and can be somewhat confusing - but for now, the only big lesson we'll borrow is to: *think about functions instead of for loops*.
+
+So, if we wanted to test some model on different subsections of our data - we start by defining a function that fits the model to the data frame that is supplied. 
+```{r}
+fit_model <- function(data) {
+  lm(mpg ~ horsepower, data = data)
+}
+```
+
+Now that we have this function, we can take advantage of functions like `map(list, function)` (from the `purrr` package) which applies the specified function to each of the items in the list and returns a list of the results. You can also use functions like `lapply` - but `map` has been written more recently with the tidyverse in mind and sometimes easier to use. (If you're curious why: https://stackoverflow.com/a/47123420 - an answer from Hadley himself!)
+
+How do can we use map? Well, we _could_ do something like this:
+```{r}
+# make some indices, and split to test and train
+test <- sample(x = seq_len(nrow(Auto)), size = 25)
+data <- list(Auto[test,], Auto[-test]) 
+# is this functional programming?
+models <- map(data, fit_model)
+```
+&nbsp;
+&nbsp;
+
+But this is not terribly elegant. 
+
+Instead, say we wanted to fit the above model to the cars from each `origin`; we can use a couple different tools from `dplyr` to really make this process easier.
+First, we'll use `group_by(column)` to split the data frame into subsets for each unique value in the supplied column and then use the function `nest` to compact the whole data frame and 'nest' it into a single value of the outer data frame's column.
+This means we have a data frame where the rows are labelled by the values from our grouping column (the `origin` column in our example) with one column called `data` where each entry is the nested data frame.
+
+```{r}
+Auto %>%
+  group_by(origin) %>%
+  nest()
+```
+
+Next we use the `mutate` function to create new columns of the data; in the example below the part before the `=` is the name of the new column we're creating and the part on the right is what is going to be put in the column.
+In our case, both new columns below use the `map` function to apply some function to one of the original data colums.
+The first applies the `fit_model` function to the `data` (i.e. fits the model we started with to each subset).
+And the second creates a new column `glance` by applying the function `broom::glance` to the column `model` that we made in the previous step.
+Finally, we'll `unnest` the `glance` column, which does the opposite of `nest` and unpacks the 'nested' data frames back into the outer data frame.
+This will give us a data frame with one row for each unique value of `origin`, with all of the values extracted using `broom::glance` from the model that we fit to the subset of data.
+```{r, results='asis'}
+Auto %>%
+  # split the data frame into subsets according to 'origin'
+  group_by(origin) %>%
+  # nest the subset data frames within the outer data frame
+  nest() %>% 
+  # apply the model fit function to each subset, and use broom to take a glance
+  mutate(
+    model = map(data, fit_model),
+    glance = map(model, broom::glance)
+  ) %>% 
+  # now unnest the glance 
+  unnest(glance)
+```
+
+&nbsp;
+
+We can also use the `broom::tidy` function to collect all of the coefficients from each of the fitted models.
+```{r}
+Auto %>%
+  group_by(origin) %>%
+  nest() %>%
+  mutate(
+    model = map(data, fit_model),
+    tidy = map(model, broom::tidy)
+  ) %>%
+  unnest(tidy) %>%
+  subset(term == "horsepower")
+```
+&nbsp;
+
+
+### ggplot2
+
+Possibly the crown jewel of tidyverse is [ggplot2](https://ggplot2.tidyverse.org/index.html), which makes just about every other plotting library seem woefully inadequate.
+We don't have time to go over it here - but there are many resources on the internet.
+Will leave on example here; taking the last values fitted and plotting the estimate for the `horsepower` coefficient for each origin group.
+```{r}
+results <- Auto %>%
+  group_by(origin) %>%
+  nest() %>%
+  mutate(
+    model = map(data, fit_model),
+    tidy = map(model, broom::tidy)
+  ) %>%
+  unnest(tidy) %>%
+  subset(term == "horsepower")
+  
+# to make a ggplot, we pipe the data frame into the ggplot function
+results %>%
+  # and now map x position to origin and y to the estimate value
+  ggplot(aes(x = origin, y = estimate, fill = as.factor(origin))) + 
+  # make it a bar plot
+  geom_bar(stat="identity") +
+  # add error bars using the std error estimate
+  geom_errorbar(aes(ymin = estimate - std.error, ymax = estimate + std.error), width = .2) +
+  # use a special color scheme and label the classes
+  scale_fill_brewer(type = "qual", labels = c("USA", "DE", "JP")) +
+  # label the axes
+  xlab("Country of Origin") + 
+  ylab("Horsepower Coefficient") +
+  # turn off the title of the legend (redundant)
+  guides(fill = guide_legend(title = NULL)) +
+  theme_minimal()
+```
